@@ -1,0 +1,58 @@
+{
+  "name": "nexus-studio-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch -r tsconfig-paths/register ./server.ts",
+    "start": "node -r module-alias/register dist/server.js",
+    "build": "tsc",
+    "compile": "tsc --noEmit -p . --pretty",
+    "format": "eslint . --fix"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.1.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.1.0",
+    "http": "0.0.1-security",
+    "morgan": "^1.10.0",
+    "nodemon": "^3.1.10",
+    "reflect-metadata": "^0.2.2",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^24.0.11",
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0",
+    "eslint": "^9.30.1",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.5.1",
+    "module-alias": "^2.2.3",
+    "prettier": "^3.6.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "automation",
+    "ai",
+    "workflow",
+    "intelligent",
+    "scraping",
+    "scheduling"
+  ],
+  "author": "",
+  "license": "ISC"
+}
