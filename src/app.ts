@@ -1,15 +1,17 @@
+import "reflect-metadata"
+
 import cors from "cors"
 import express, { Application } from "express"
 import helmet from "helmet"
-import path from "path"
 
-import { rateLimiter } from "./middleware/auth/rateLimiter"
-import { globalErrorHandler } from "./middleware/logging/errorLogger"
+import { rateLimiter } from "./middleware/auth/rateLimiter.middleware"
+import { endpointNotFoundMiddleware, globalErrorHandler } from "./middleware/logging/errorLogger"
 import corsConfig from "./middleware/security/cors"
 import helmetConfig from "./middleware/security/helmet"
 
+import path from "path"
+import { registerControllers } from "./controllers"
 import { requestContext, requestLogger, requestStartTime } from "./middleware/logging/requestLogger"
-import routes from "./routes"
 
 const app: Application = express()
 
@@ -25,9 +27,11 @@ app.use(requestStartTime)
 app.use(requestContext)
 app.use(requestLogger)
 
-app.use(rateLimiter, routes)
+registerControllers(app, { basePath: "/api/v1", globalMiddlewares: [rateLimiter] })
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")))
+
+app.use(/(.*)/, endpointNotFoundMiddleware)
 
 app.use(globalErrorHandler)
 

@@ -1,9 +1,11 @@
-import AppError, { isAppError } from "@/utils/errors/AppError"
+import { ApiResponseHandler } from "@/responses"
+import { ErrorResponse } from "@/responses/common/error.response"
+import HttpException, { isHttpException } from "@/utils/errors/HttpException"
 import logger from "@/utils/logger/winston"
 import { NextFunction, Request, Response } from "express"
 import { Server } from "http"
 
-export const errorLogger = (err: Error, req: Request, _res: Response, next: NextFunction) => {
+export const logError = (err: Error, req: Request, _res: Response) => {
   const errorInfo = {
     message: err.message,
     stack: err.stack,
@@ -22,20 +24,18 @@ export const errorLogger = (err: Error, req: Request, _res: Response, next: Next
     timestamp: new Date().toISOString(),
   }
 
-  if (isAppError(err)) {
+  if (isHttpException(err)) {
     if (err.statusCode >= 500) {
       logger.error("Server Error", {
         ...errorInfo,
         statusCode: err.statusCode,
-        status: err.status,
-        isOperational: err.isOperational,
+        isExpected: err.isExpected,
       })
     } else if (err.statusCode >= 400) {
-      logger.warn("Client Error", {
+      logger.warn("Client Error: ", {
         ...errorInfo,
         statusCode: err.statusCode,
-        status: err.status,
-        isOperational: err.isOperational,
+        isExpected: err.isExpected,
       })
     }
   } else {
@@ -45,8 +45,6 @@ export const errorLogger = (err: Error, req: Request, _res: Response, next: Next
       errorConstructor: err.constructor.name,
     })
   }
-
-  next(err)
 }
 
 export const asyncErrorHandler = <T extends any[]>(
@@ -57,60 +55,70 @@ export const asyncErrorHandler = <T extends any[]>(
   }
 }
 
-const convertToAppError = (err: Error, req: Request): AppError => {
-  if (isAppError(err)) {
-    return err
+const convertToHttpException = (err: Error, req: Request): HttpException => {
+  // Return as-is if already HttpException
+  if (isHttpException(err)) {
+    return err as HttpException
+  }
+
+  // Base options for HTTP context
+  const options = {
+    path: req.originalUrl,
+    method: req.method,
+    isExpected: true,
   }
 
   switch (err.name) {
     case "ValidationError":
-      return new AppError("Validation failed", 400, true, req.originalUrl, req.method)
+      return HttpException.badRequest("Validation failed", options)
 
     case "CastError":
-      return new AppError("Invalid ID format", 400, true, req.originalUrl, req.method)
+      return HttpException.badRequest("Invalid ID format", options)
 
     case "MongoError":
-    case "SequelizeError":
-      if ("code" in err && (err as any).code === 11000) {
-        return new AppError("Duplicate entry", 409, true, req.originalUrl, req.method)
+    case "SequelizeError": {
+      const anyErr = err as any
+      if (anyErr.code === 11000) {
+        return HttpException.conflict("Duplicate entry", options)
       }
       break
+    }
 
     case "JsonWebTokenError":
-      return AppError.unauthorized("Invalid token")
+      return HttpException.unauthorized("Invalid token", options)
 
     case "TokenExpiredError":
-      return AppError.unauthorized("Token expired")
+      return HttpException.unauthorized("Token expired", options)
 
     case "SyntaxError":
       if (err.message.includes("JSON")) {
-        return AppError.badRequest("Invalid JSON payload")
+        return HttpException.badRequest("Invalid JSON payload", options)
       }
       break
   }
 
-  if ("code" in err) {
-    const systemError = err as NodeJS.ErrnoException
-    switch (systemError.code) {
+  // Node system errors
+  const sysErr = err as NodeJS.ErrnoException
+  if (sysErr.code) {
+    switch (sysErr.code) {
       case "ENOENT":
-        return AppError.notFound("Resource not found")
+        return HttpException.notFound("Resource not found", options)
       case "EACCES":
-        return AppError.forbidden("Access denied")
+        return HttpException.forbidden("Access denied", options)
       case "EMFILE":
       case "ENFILE":
-        return AppError.serviceUnavailable("Too many open files")
+        return HttpException.serviceUnavailable("Too many open files", options)
       case "ECONNREFUSED":
-        return AppError.serviceUnavailable("Connection refused")
+        return HttpException.serviceUnavailable("Connection refused", options)
       case "ETIMEDOUT":
-        return AppError.gatewayTimeout("Request timeout")
+        return HttpException.gatewayTimeout("Request timeout", options)
     }
   }
 
-  // Default to internal server error for unknown errors
-  return AppError.internal(
+  // Fallback to internal server error
+  return HttpException.internal(
     process.env.NODE_ENV === "development" ? err.message : "Internal Server Error",
-    req.originalUrl,
-    req.method,
+    options,
   )
 }
 
@@ -120,32 +128,35 @@ export const globalErrorHandler = (
   res: Response,
   _next: NextFunction,
 ) => {
-  const appError = convertToAppError(err, req)
+  const appError = convertToHttpException(err, req)
 
-  errorLogger(appError, req, res, () => {})
+  logError(appError, req, res)
 
-  res.status(appError.statusCode).json({
+  const jsonResponse = {
     success: false,
-    error: {
-      message: appError.message,
-      status: appError.status,
-      statusCode: appError.statusCode,
-      timestamp: appError.timestamp,
-      path: appError.path,
-      method: appError.method,
-      requestId: req.requestId,
-      ...(process.env.NODE_ENV === "development" && {
-        stack: appError.stack,
-        isOperational: appError.isOperational,
-      }),
-    },
-  })
+
+    message: appError.message,
+    statusCode: appError.statusCode,
+    timestamp: appError.timestamp,
+    path: appError.path,
+    method: appError.method,
+    requestId: req.requestId,
+
+    errors: appError.errors,
+
+    ...(process.env.NODE_ENV === "development" && {
+      stack: appError.stack,
+      isExpected: appError.isExpected,
+    }),
+  }
+
+  const standardizedResponse = ApiResponseHandler.standardize(ErrorResponse, jsonResponse)
+
+  res.status(appError.statusCode).json(standardizedResponse)
 }
 
-export const endpointNotFoundMiddleware = (req: Request, _res: Response, next: NextFunction) => {
-  const error = new AppError(`Route ${req.originalUrl} not found`, 404) as any
-
-  next(error)
+export const endpointNotFoundMiddleware = (req: Request, _res: Response) => {
+  throw HttpException.notFound(`Route ${req.originalUrl} not found`)
 }
 
 export const unhandledRejectionHandler = (reason: any, promise: Promise<any>) => {
@@ -185,8 +196,8 @@ export const errorBoundary = (
     try {
       await fn(req, res, next)
     } catch (error) {
-      // Convert to AppError and pass to error handler
-      const appError = convertToAppError(error as Error, req)
+      // Convert to HttpException and pass to error handler
+      const appError = convertToHttpException(error as Error, req)
       next(appError)
     }
   }

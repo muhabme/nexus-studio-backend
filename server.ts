@@ -1,7 +1,13 @@
 import "dotenv/config"
 import { Server } from "http"
-import "reflect-metadata"
 import app from "./src/app"
+
+import { config } from "dotenv"
+import path from "path"
+
+config({ path: path.resolve(__dirname, `.env`), quiet: true })
+
+import { connectDatabase, databaseManager } from "./src/integrations/databases/mysql"
 
 import {
   gracefulShutdown,
@@ -14,7 +20,9 @@ const PORT = Number(process.env.PORT) || 3000
 
 const initializeServices = async (): Promise<boolean> => {
   try {
-    console.log("Services not implemented yet...")
+    // Connect to database
+    await connectDatabase()
+    logger.info("Database connected successfully")
 
     return true
   } catch (error) {
@@ -37,7 +45,22 @@ const startServer = async (): Promise<Server> => {
       logger.info(`🔗 Health Check: http://localhost:${PORT}/health`)
     })
 
-    ;["SIGTERM", "SIGINT"].forEach((sig) => process.on(sig, gracefulShutdown(server)))
+    const handleShutdown = gracefulShutdown(server)
+
+    ;["SIGTERM", "SIGINT"].forEach((signal) => {
+      process.on(signal, async () => {
+        logger.info(`📥 Received ${signal}, starting graceful shutdown...`)
+
+        try {
+          await databaseManager.disconnect()
+          logger.info("✅ Database disconnected successfully")
+        } catch (error) {
+          logger.error("❌ Error disconnecting database:", error)
+        }
+
+        handleShutdown(signal)
+      })
+    })
 
     return server
   } catch (error) {

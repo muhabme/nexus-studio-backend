@@ -3,7 +3,7 @@ import { Handler, NextFunction, Request, Response } from "express"
 import morgan from "morgan"
 
 morgan.token("user-id", (req: Request) => {
-  return req.user?.id || "anonymous"
+  return req.user?.id?.toString() || "anonymous"
 })
 
 morgan.token("execution-id", (req: Request) => {
