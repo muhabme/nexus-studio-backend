@@ -4,7 +4,7 @@ import { Required } from "@/decorators/validators/required.validator"
 import { IsString } from "@/decorators/validators/string.validator"
 
 @ExcludeExtraneousValues()
-class LoginUserDto {
+class LoginRequest {
   @Expose()
   @Required()
   @IsEmail()
@@ -16,4 +16,4 @@ class LoginUserDto {
   password: string
 }
 
-export { LoginUserDto }
+export { LoginRequest }

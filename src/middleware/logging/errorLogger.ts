@@ -1,5 +1,3 @@
-import { ApiResponseHandler } from "@/responses"
-import { ErrorResponse } from "@/responses/common/error.response"
 import HttpException, { isHttpException } from "@/utils/errors/HttpException"
 import logger from "@/utils/logger/winston"
 import { NextFunction, Request, Response } from "express"
@@ -150,9 +148,7 @@ export const globalErrorHandler = (
     }),
   }
 
-  const standardizedResponse = ApiResponseHandler.standardize(ErrorResponse, jsonResponse)
-
-  res.status(appError.statusCode).json(standardizedResponse)
+  res.status(appError.statusCode).json(jsonResponse)
 }
 
 export const endpointNotFoundMiddleware = (req: Request, _res: Response) => {

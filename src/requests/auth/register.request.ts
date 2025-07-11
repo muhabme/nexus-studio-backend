@@ -6,7 +6,7 @@ import { Unique } from "@/decorators/validators/unique.validator"
 import { User } from "@/models/User"
 
 @ExcludeExtraneousValues()
-class RegisterUserDto {
+class RegisterRequest {
   @Expose()
   @IsString()
   @Required()
@@ -25,4 +25,4 @@ class RegisterUserDto {
   password: string
 }
 
-export { RegisterUserDto }
+export { RegisterRequest }

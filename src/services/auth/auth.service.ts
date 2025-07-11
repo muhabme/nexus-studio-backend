@@ -1,13 +1,13 @@
 import { User } from "@/models/User"
 import UserRepository from "@/repositories/UserRepository"
-import { LoginUserDto } from "@/requests/auth/login.request"
-import { RegisterUserDto } from "@/requests/auth/register.request"
+import { LoginRequest } from "@/requests/auth/login.request"
+import { RegisterRequest } from "@/requests/auth/register.request"
 import JwtService, { JwtPayload } from "@/services/auth/jwt.service"
 import HttpException from "@/utils/errors/HttpException"
 import PasswordService from "./password.service"
 
 class AuthService {
-  async register(body: RegisterUserDto) {
+  async register(body: RegisterRequest) {
     const user = await UserRepository.create({
       email: body.email,
       name: body.name,
@@ -17,7 +17,7 @@ class AuthService {
     return user
   }
 
-  async login(body: LoginUserDto) {
+  async login(body: LoginRequest) {
     const { email, password } = body
     if (!email || !password) {
       throw HttpException.badRequest("Email and password are required.")

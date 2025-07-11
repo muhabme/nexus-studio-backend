@@ -12,6 +12,7 @@ import helmetConfig from "./middleware/security/helmet"
 import path from "path"
 import { registerControllers } from "./controllers"
 import { requestContext, requestLogger, requestStartTime } from "./middleware/logging/requestLogger"
+import { responseHandler } from "./middleware/response/responseHandler.middleware"
 
 const app: Application = express()
 
@@ -26,6 +27,8 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }))
 app.use(requestStartTime)
 app.use(requestContext)
 app.use(requestLogger)
+
+app.use(responseHandler)
 
 registerControllers(app, { basePath: "/api/v1", globalMiddlewares: [rateLimiter] })
 
